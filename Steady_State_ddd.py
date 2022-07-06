@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 # import time
 import numpy as np
 import matplotlib.pyplot as plt
@@ -17,17 +18,17 @@ from landlab.components import FlowAccumulator, Space, FastscapeEroder, Priority
 from landlab.components.space import SpaceLargeScaleEroder
 
 # Reading the original topo
-(grid, z) = read_esri_ascii('topo142x109.asc',name='topographic__elevation')
+(grid, z) = read_esri_ascii('ztopo_5m_resolution.asc',name='topographic__elevation')
 grid.set_closed_boundaries_at_grid_edges(bottom_is_closed=False, left_is_closed=True, right_is_closed=True, top_is_closed=True)
 
-xmax = 142 # x grid dimension in meters
-ymax = 109 # y grid dimension in meters
-dxy = 1.0 # grid step in meters
-nrows = int(ymax/dxy)
-ncols = int(xmax/dxy)
+xmax = 1000 # x grid dimension in meters
+ymax = 500 # y grid dimension in meters
+dxy = 5.0 # grid step in meters
+nrows = 100
+ncols = 200
 
 # Choosing the fault location
-fault_loc = 120
+fault_loc = 200
 fault_nodes = np.where(grid.node_y==fault_loc)[0]
 
 # plotting parameters (grid plotting & initial conditions)
@@ -42,22 +43,22 @@ limits = [0,20] # elevation limits for grid plots
 #plt.show()
 
 # uplift
-uplift_rate= 5 *10e-4
+uplift_rate= 5 *1e-6
 
 #Hillsope Geomorphology for DDTD component
 H=10 # original soil depth
-Sc= 0.7 #critical slope
+#Sc= 0.7 #critical slope
 Hstar= 0.1 # characteristic transport depth, m
 V0= 0.1 #transport velocity coefficient
 D= V0 *Hstar  #effective(maximum) diffusivity
 
 #Fluvial Erosion for SPACE Large Scale Eroder
-K_sed=0.001 #sediment erodibility
-K_br= 0.00001 #bedrock erodibility
+K_sed=5*1e-5 #sediment erodibility
+K_br= 1*1e-5 #bedrock erodibility
 F_f=0.5 #fraction of fine sediment
 phi= 0.5 #sediment porosity
 H_star=Hstar #sediment entrainment lenght scale
-Vs= 0.1 #velocity of sediment
+Vs= 1 #velocity of sediment
 m_sp= 0.5 #exponent ondrainage area stream power
 n_sp= 1 #exponent on channel slope in the stream power framework
 sp_crit_sed=0 #sediment erosion threshold
@@ -85,14 +86,14 @@ ax.legend(loc='lower right')
 #plt.show()
 
 #timing
-tmax=100
-dt=10
+tmax=1000000
+dt=100
 model_time=np.arange(0,tmax,dt)
 iterations=len(model_time)
 
 # instantiate components
 # Hillslope with Diffuser
-ddd=DepthDependentDiffuser(grid, linear_diffusivity=0.01,
+ddd=DepthDependentDiffuser(grid, linear_diffusivity=0.001,
                                   soil_transport_decay_depth=Hstar)
 #Flow Router
 fr=PriorityFloodFlowRouter(grid, flow_metric='D8', suppress_out=True)
@@ -110,22 +111,28 @@ space= SpaceLargeScaleEroder(grid,
                              sp_crit_br=0)
 # Now the for loop to do landscape evolution
 
+z_original=np.array(z)
+
 for i in range(iterations):
+    print(i)
     #ddtd.run_one_step(dt)
     ddd.run_one_step(dt)
     fr.run_one_step()
     space.run_one_step(dt)
     z[grid.core_nodes] += uplift_rate *dt
     rock[grid.core_nodes] += uplift_rate * dt
-    if i%1  == 0:
+    if i%200  == 0:
         fig = plt.figure(figsize=[8, 8])
         imshow_grid(grid, z, cmap='gray', grid_units=['m', 'm'], shrink=shrink)
         plt.title('Topography after '+str(int((i*dt)))+' years')
-        plt.savefig('output_ddd/topo_%s_yrs.png' % (int(i * dt)), dpi=300, facecolor='white')
+        plt.savefig('output_ddd_full_grid/topo_%s_yrs.png' % (int(i * dt)), dpi=300, facecolor='white')
     #plt.show()
-    #print(i)
+    diff=sum(z_original) - sum(z)
+    print('diference in topo is: ' + str(diff))
 #
-# fig = plt.figure(figsize=[8, 8])
-# imshow_grid(grid, z, cmap='gray', grid_units=['m', 'm'], shrink=shrink)
-# plt.title('Topography after '+str(int(i*dt +dt))+' years')
+fig = plt.figure(figsize=[8, 8])
+imshow_grid(grid, z, cmap='gray', grid_units=['m', 'm'], shrink=shrink)
+plt.title('Topography after '+str(int(i*dt +dt))+' years')
+plt.savefig('output_ddd_full_grid/topo_finals_yrs.png', dpi=300, facecolor='white')
 # plt.show()
+print('done')

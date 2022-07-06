@@ -1,3 +1,5 @@
+
+#!/usr/bin/env python3
 # import time
 import numpy as np
 import matplotlib.pyplot as plt
@@ -35,20 +37,20 @@ figsize = [8,8] # size of grid plots
 shrink = 0.35 # amount of colorbar shrinkage for plots (0-1). 1 = not shrunk. 0 = nonexistent.
 limits = [0,20] # elevation limits for grid plots
 
-# fig = plt.figure(figsize=figsize)
-# imshow_grid(grid,z,grid_units=['m','m'], cmap='gray', shrink=shrink)
-# plt.title('Original Topography')
-# plt.savefig('output_ddtd/Original Topography',dpi=300,facecolor='white')
-# #plt.show()
+fig = plt.figure(figsize=figsize)
+imshow_grid(grid,z,grid_units=['m','m'], cmap='gray', shrink=shrink)
+plt.title('Original Topography')
+plt.savefig('output_ddtd/Original Topography',dpi=300,facecolor='white')
+#plt.show()
 
 # uplift
-uplift_rate= 5 *10e-4
+uplift_rate= 1 *1e-4
 
 #Hillsope Geomorphology for DDTD component
 H=10 # original soil depth
 Sc= 0.7 #critical slope
 Hstar= 0.1 # characteristic transport depth, m
-V0= 0.1 #transport velocity coefficient
+V0= 0.01 #transport velocity coefficient
 D= V0 *Hstar  #effective(maximum) diffusivity
 
 #Fluvial Erosion for SPACE Large Scale Eroder
@@ -57,7 +59,7 @@ K_br= 0.00001 #bedrock erodibility
 F_f=0.5 #fraction of fine sediment
 phi= 0.5 #sediment porosity
 H_star=Hstar #sediment entrainment lenght scale
-Vs= 0.1 #velocity of sediment
+Vs= 0.01 #velocity of sediment
 m_sp= 0.5 #exponent ondrainage area stream power
 n_sp= 1 #exponent on channel slope in the stream power framework
 sp_crit_sed=0 #sediment erosion threshold
@@ -72,21 +74,21 @@ grid.add_zeros("node", "soil_production__rate", clobber=True)
 soil_production_rate= grid.at_node["soil_production__rate"]
 rock= grid.at_node["bedrock__elevation"]
 soil=grid.at_node["soil__depth"]
-figsize = [16,4] # size of grid plots
-fig, ax = plt.subplots(figsize=figsize)
-x = grid.node_x[fault_nodes]
+# figsize = [16,4] # size of grid plots
+# fig, ax = plt.subplots(figsize=figsize)
+# x = grid.node_x[fault_nodes]
 soil_level = rock + soil
-ax.plot(x, soil_level[fault_nodes], 'orange', linewidth=2, markersize=12, label='soil')
-ax.plot(x, rock[fault_nodes], linewidth=2, markersize=12, label='bedrock')
-plt.title('Original cross-Profile topography at fault location')
-ax.set_xlabel('X (m)')
-ax.set_ylabel('Depth (m)')
-ax.legend(loc='lower right')
+# ax.plot(x, soil_level[fault_nodes], 'orange', linewidth=2, markersize=12, label='soil')
+# ax.plot(x, rock[fault_nodes], linewidth=2, markersize=12, label='bedrock')
+# plt.title('Original cross-Profile topography at fault location')
+# ax.set_xlabel('X (m)')
+# ax.set_ylabel('Depth (m)')
+# ax.legend(loc='lower right')
 #plt.show()
 
 #timing
-tmax=10000000
-dt=10000
+tmax=100000
+dt=10
 model_time=np.arange(0,tmax,dt)
 iterations=len(model_time)
 
@@ -115,19 +117,24 @@ space= SpaceLargeScaleEroder(grid,
 # Now the for loop to do landscape evolution
 
 for i in range(iterations):
+    print('before landscape processes')
+    z[grid.core_nodes] += uplift_rate *dt
+    rock[grid.core_nodes] += uplift_rate * dt
     ddtd.run_one_step(dt)
     #ddd.run_one_step(dt)
     fr.run_one_step()
     space.run_one_step(dt)
-    z[grid.core_nodes] += uplift_rate *dt
-    rock[grid.core_nodes] += uplift_rate * dt
+    #erosion_rate=SpaceLargeScaleEroder._calc_erosion_rates()
     if i%100  == 0:
         fig = plt.figure(figsize=[8, 8])
         imshow_grid(grid, z, cmap='gray', grid_units=['m', 'm'], shrink=shrink)
         plt.title('Topography after '+str(int((i*dt)))+' years')
-        plt.savefig('output_ddtd/topo_%s_yrs.png' % (int(i * dt)), dpi=300, facecolor='white')
-    #plt.show()
-    #print(i)
+        plt.savefig('output_ddtd/topo_%s_yrs.png' % (int((i * dt)+dt)), dpi=300, facecolor='white')
+    print(i)
+    #print(erosion_rate)
+    print('after landscape processes')
+#plt.show()
+print('job done')
 #
 # fig = plt.figure(figsize=[8, 8])
 # imshow_grid(grid, z, cmap='gray', grid_units=['m', 'm'], shrink=shrink)
